@@ -1,3 +1,4 @@
+
 import json
 from json import JSONDecodeError
 import bs4
@@ -12,7 +13,6 @@ class InstagramUser:
     def __init__(self, user_id, username=None, bio=None, followers_count=None, following_count=None, is_private=False):
         """
         A class to represent an Instagram User
-
         :param user_id: User ID of instagram user
         :param username: Username of Instagram user
         :param bio: Bio text for user
@@ -79,9 +79,7 @@ class HashTagSearch(metaclass=ABCMeta):
     def __init__(self, ):
         """
         This class performs a search on Instagrams hashtag search engine, and extracts posts for that given hashtag.
-
         There are some limitations, as this does not extract all occurrences of the hash tag.
-
         Instead, it extracts the most recent uses of the tag.
         """
         super().__init__()
@@ -96,15 +94,16 @@ class HashTagSearch(metaclass=ABCMeta):
         response = bs4.BeautifulSoup(requests.get(url_string).text, "html.parser")
         potential_query_ids = self.get_query_id(response)
         shared_data = self.extract_shared_data(response)
-
-        media = shared_data['entry_data']['TagPage'][0]['tag']['media']
+       
+        len_of_list=len(shared_data['entry_data']['TagPage'][0]['graphql']['hashtag']['edge_hashtag_to_media']['edges'])
+        
         posts = []
-        for node in media['nodes']:
-            post = self.extract_recent_instagram_post(node)
+        for i in range(0,len_of_list):
+            post = shared_data['entry_data']['TagPage'][0]['graphql']['hashtag']['edge_hashtag_to_media']['edges'][i]['node']['edge_media_to_caption']['edges'][0]['node'].get('text')
             posts.append(post)
         self.save_results(posts)
 
-        end_cursor = media['page_info']['end_cursor']
+        end_cursor = shared_data['entry_data']['TagPage'][0]['graphql']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
 
         # figure out valid queryId
         success = False
@@ -123,16 +122,16 @@ class HashTagSearch(metaclass=ABCMeta):
                 # no valid JSON retured, most likely wrong query_id resulting in 'Oops, an error occurred.'
                 pass
         if not success:
-            log.error("Error extracting Query Id, exiting")
+           # log.error("Error extracting Query Id, exiting")
             sys.exit(1)
 
         while end_cursor is not None:
             url = "https://www.instagram.com/graphql/query/?query_id=%s&tag_name=%s&first=12&after=%s" % (
             query_id, tag, end_cursor)
             data = json.loads(requests.get(url).text)
-            end_cursor = data['data']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
+            end_cursor = data['entry_data']['TagPage'][0]['graphql']['hashtag']['edge_hashtag_to_media']['page_info']['end_cursor']
             posts = []
-            for node in data['data']['hashtag']['edge_hashtag_to_media']['edges']:
+            for node in data['entry_data']['TagPage'][0]['graphql']['hashtag']['edge_hashtag_to_media']['edges']:
                 posts.append(self.extract_recent_query_instagram_post(node['node']))
             self.save_results(posts)
 
@@ -213,7 +212,7 @@ class HashTagSearchExample(HashTagSearch):
         super().save_results(instagram_results)
         for i, post in enumerate(instagram_results):
             self.total_posts += 1
-            print("%i - %s" % (self.total_posts, post.processed_text()))
+            print("i - s", (self.total_posts, post))
 
 
 if __name__ == '__main__':
